@@ -1,11 +1,17 @@
 package main
 
 import (
-	_ "go-pos/routers"
-	beego "github.com/beego/beego/v2/server/web"
+	"your-app-name/database"
+	"log"
 )
 
 func main() {
-	beego.Run()
+	// Initialize database connection
+	database.Initialize()
+	defer database.Close()
+	
+	// Rest of your application setup
+	log.Println("Application started...")
+	
+	// Your application code here...
 }
-
