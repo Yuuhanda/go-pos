@@ -1,7 +1,7 @@
 package main
 
 import (
-	"your-app-name/database"
+	"go-pos/database"
 	"log"
 )
 

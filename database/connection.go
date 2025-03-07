@@ -6,7 +6,7 @@ import (
     "log"
     "time"
     
-    "your-app-name/config"
+    "go-pos/config"
     
     _ "github.com/go-sql-driver/mysql"
 )

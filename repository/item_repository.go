@@ -1,8 +1,8 @@
 package repository
 
 import (
-    "your-app-name/database"
-    "your-app-name/model"
+    "go-pos/database"
+    "go-pos/model"
 )
 
 // ItemRepository provides database operations for items
