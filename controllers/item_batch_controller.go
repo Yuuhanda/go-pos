@@ -3,13 +3,22 @@ package controllers
 import (
 	"encoding/json"
 	"go-pos/model"
+	"go-pos/repository"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // ItemBatchController handles ItemBatch CRUD operations
 type ItemBatchController struct {
 	BaseController
+	repo *repository.ItemBatchRepository
+}
+
+// Prepare initializes the controller
+func (c *ItemBatchController) Prepare() {
+	// Initialize the repository
+	c.repo = repository.NewItemBatchRepository()
 }
 
 // Create adds a new item batch
@@ -21,11 +30,30 @@ func (c *ItemBatchController) Create() {
 		return
 	}
 	
-	// TODO: Implement repository call to save the item batch
-	// For now, mock the response
-	itemBatch.ID = 1 // Mocked ID
+	// Validate required fields
+	if itemBatch.ItemID <= 0 {
+		c.JSONResponse(http.StatusBadRequest, "Item ID is required", nil)
+		return
+	}
 	
-	c.JSONResponse(http.StatusCreated, "Item batch created successfully", itemBatch)
+	if itemBatch.Qty <= 0 {
+		c.JSONResponse(http.StatusBadRequest, "Quantity must be greater than zero", nil)
+		return
+	}
+	
+	// Set default values if not provided
+	if itemBatch.DateIn.IsZero() {
+		itemBatch.DateIn = time.Now()
+	}
+	
+	// Save the item batch to database
+	newItemBatch, err := c.repo.CreateItemBatch(&itemBatch)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to create item batch: "+err.Error(), nil)
+		return
+	}
+	
+	c.JSONResponse(http.StatusCreated, "Item batch created successfully", newItemBatch)
 }
 
 // Get retrieves an item batch by ID
@@ -37,12 +65,10 @@ func (c *ItemBatchController) Get() {
 		return
 	}
 	
-	// TODO: Implement repository call to fetch the item batch
-	// For now, mock the response
-	itemBatch := &model.ItemBatch{
-		ID:     id,
-		ItemID: 1,
-		Qty:    100,
+	itemBatch, err := c.repo.GetItemBatch(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Item batch not found", nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "Item batch retrieved successfully", itemBatch)
@@ -50,11 +76,27 @@ func (c *ItemBatchController) Get() {
 
 // GetAll retrieves all item batches
 func (c *ItemBatchController) GetAll() {
-	// TODO: Implement repository call to fetch all item batches
-	// For now, mock the response
-	itemBatches := []model.ItemBatch{
-		{ID: 1, ItemID: 1, Qty: 100},
-		{ID: 2, ItemID: 2, Qty: 200},
+	// Check for optional item filter
+	itemIDStr := c.GetString("item_id")
+	var itemBatches []model.ItemBatch
+	var err error
+	
+	if itemIDStr != "" {
+		var itemID int
+		itemID, err = strconv.Atoi(itemIDStr)
+		if err != nil {
+			c.JSONResponse(http.StatusBadRequest, "Invalid item ID format", nil)
+			return
+		}
+		
+		itemBatches, err = c.repo.GetItemBatchesByItem(itemID)
+	} else {
+		itemBatches, err = c.repo.GetAllItemBatches()
+	}
+	
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve item batches: "+err.Error(), nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "Item batches retrieved successfully", itemBatches)
@@ -77,9 +119,21 @@ func (c *ItemBatchController) Update() {
 	
 	itemBatch.ID = id
 	
-	// TODO: Implement repository call to update the item batch
+	// Check if item batch exists
+	_, err = c.repo.GetItemBatch(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Item batch not found", nil)
+		return
+	}
 	
-	c.JSONResponse(http.StatusOK, "Item batch updated successfully", itemBatch)
+	// Update item batch
+	updatedItemBatch, err := c.repo.UpdateItemBatch(&itemBatch)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to update item batch: "+err.Error(), nil)
+		return
+	}
+	
+	c.JSONResponse(http.StatusOK, "Item batch updated successfully", updatedItemBatch)
 }
 
 // Delete deletes an item batch
@@ -91,8 +145,19 @@ func (c *ItemBatchController) Delete() {
 		return
 	}
 	
-	// TODO: Implement repository call to delete the item batch
-	_ = id // Temporary fix: use the id variable to avoid unused variable error
+	// Check if item batch exists
+	_, err = c.repo.GetItemBatch(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Item batch not found", nil)
+		return
+	}
+	
+	// Delete item batch
+	err = c.repo.DeleteItemBatch(id)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to delete item batch: "+err.Error(), nil)
+		return
+	}
 	
 	c.JSONResponse(http.StatusOK, "Item batch deleted successfully", nil)
 }
