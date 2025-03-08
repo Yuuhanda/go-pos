@@ -185,3 +185,25 @@ func (r *MemberRepository) DeleteMember(id int) error {
 	
 	return nil
 }
+
+// UpdateMemberTx updates a member as part of a transaction
+func (r *MemberRepository) UpdateMemberTx(tx *sql.Tx, member *model.Member) (*model.Member, error) {
+    query := `UPDATE member SET 
+              member_name = ?, 
+              member_phone = ?, 
+              member_points = ? 
+              WHERE id_member = ?`
+              
+    _, err := tx.Exec(query,
+        member.Name,
+        member.Phone,
+        member.Points,
+        member.ID)
+        
+    if err != nil {
+        return nil, err
+    }
+    
+    return member, nil
+}
+
