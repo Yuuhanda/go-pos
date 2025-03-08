@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"go-pos/model"
+	"go-pos/repository"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,6 +12,13 @@ import (
 // MemberController handles Member CRUD operations
 type MemberController struct {
 	BaseController
+	repo *repository.MemberRepository
+}
+
+// Prepare initializes the controller
+func (c *MemberController) Prepare() {
+	// Initialize the repository
+	c.repo = repository.NewMemberRepository()
 }
 
 // Create adds a new member
@@ -22,17 +30,29 @@ func (c *MemberController) Create() {
 		return
 	}
 	
+	// Validate required fields
+	if member.Name == "" {
+		c.JSONResponse(http.StatusBadRequest, "Member name is required", nil)
+		return
+	}
+	
+	if member.Phone <= 0 {
+		c.JSONResponse(http.StatusBadRequest, "Valid phone number is required", nil)
+		return
+	}
+	
 	// Set default values
 	member.JoinDate = time.Now()
 	member.Points = 0
 	
-	// TODO: Hash password and generate token
-	// TODO: Implement repository call to save the member
+	// Save the member to database
+	newMember, err := c.repo.CreateMember(&member)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to create member: "+err.Error(), nil)
+		return
+	}
 	
-	// For now, mock the response
-	member.ID = 1 // Mocked ID
-	
-	c.JSONResponse(http.StatusCreated, "Member created successfully", member)
+	c.JSONResponse(http.StatusCreated, "Member created successfully", newMember)
 }
 
 // Get retrieves a member by ID
@@ -44,14 +64,10 @@ func (c *MemberController) Get() {
 		return
 	}
 	
-	// TODO: Implement repository call to fetch the member
-	// For now, mock the response
-	member := &model.Member{
-		ID:       id,
-		Name:     "Sample Member",
-		Phone:    123456789,
-		JoinDate: time.Now(),
-		Points:   100,
+	member, err := c.repo.GetMember(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Member not found", nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "Member retrieved successfully", member)
@@ -59,11 +75,27 @@ func (c *MemberController) Get() {
 
 // GetAll retrieves all members
 func (c *MemberController) GetAll() {
-	// TODO: Implement repository call to fetch all members
-	// For now, mock the response
-	members := []model.Member{
-		{ID: 1, Name: "Member 1", Phone: 123456789, JoinDate: time.Now(), Points: 100},
-		{ID: 2, Name: "Member 2", Phone: 987654321, JoinDate: time.Now(), Points: 200},
+	// Check for optional phone filter
+	phoneStr := c.GetString("phone")
+	
+	var members []model.Member
+	var err error
+	
+	if phoneStr != "" {
+		phone, err := strconv.Atoi(phoneStr)
+		if err != nil {
+			c.JSONResponse(http.StatusBadRequest, "Invalid phone number format", nil)
+			return
+		}
+		
+		members, err = c.repo.GetMembersByPhone(phone)
+	} else {
+		members, err = c.repo.GetAllMembers()
+	}
+	
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve members: "+err.Error(), nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "Members retrieved successfully", members)
@@ -86,9 +118,21 @@ func (c *MemberController) Update() {
 	
 	member.ID = id
 	
-	// TODO: Implement repository call to update the member
+	// Check if member exists
+	_, err = c.repo.GetMember(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Member not found", nil)
+		return
+	}
 	
-	c.JSONResponse(http.StatusOK, "Member updated successfully", member)
+	// Update member
+	updatedMember, err := c.repo.UpdateMember(&member)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to update member: "+err.Error(), nil)
+		return
+	}
+	
+	c.JSONResponse(http.StatusOK, "Member updated successfully", updatedMember)
 }
 
 // Delete deletes a member
@@ -100,8 +144,31 @@ func (c *MemberController) Delete() {
 		return
 	}
 	
-	// TODO: Implement repository call to delete the member
-	_ = id // Temporarily use the id variable to avoid unused variable error
+	// Check if member exists
+	_, err = c.repo.GetMember(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Member not found", nil)
+		return
+	}
+	
+	// Check if member has any sales baskets (can't delete a member with transactions)
+	hasSales, err := c.repo.MemberHasSales(id)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to check member sales: "+err.Error(), nil)
+		return
+	}
+	
+	if hasSales {
+		c.JSONResponse(http.StatusBadRequest, "Cannot delete member: has existing sales records", nil)
+		return
+	}
+	
+	// Delete member
+	err = c.repo.DeleteMember(id)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to delete member: "+err.Error(), nil)
+		return
+	}
 	
 	c.JSONResponse(http.StatusOK, "Member deleted successfully", nil)
 }
