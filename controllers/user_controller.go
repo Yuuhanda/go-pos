@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/google/uuid"
+	"go-pos/repository"
 )
 
 // UserController handles User CRUD operations
@@ -30,17 +32,24 @@ func (c *UserController) Create() {
 	}
 	user.PasswordHash = string(hashedPassword)
 	
-	// TODO: Generate a unique token
-	user.Token = "generated-token-here"
+	// Generate a unique token using UUID
+	token := uuid.New().String()
+	user.Token = token
 	
-	// TODO: Implement repository call to save the user
-	// For now, mock the response
-	user.ID = 1 // Mocked ID
+	// Create new user repository instance
+	repo := repository.NewUserRepository()
+	
+	// Save the user to database
+	newUser, err := repo.CreateUser(&user)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to create user: "+err.Error(), nil)
+		return
+	}
 	
 	// Don't return sensitive information
-	user.PasswordHash = ""
+	newUser.PasswordHash = ""
 	
-	c.JSONResponse(http.StatusCreated, "User created successfully", user)
+	c.JSONResponse(http.StatusCreated, "User created successfully", newUser)
 }
 
 // Get retrieves a user by ID
@@ -52,19 +61,18 @@ func (c *UserController) Get() {
 		return
 	}
 	
-	// TODO: Implement repository call to fetch the user
-	// For now, mock the response
-	user := &model.User{
-		ID:       id,
-		NIK:      123456789,
-		Name:     "John Doe",
-		Address:  "123 Main St",
-		Phone:    987654321,
-		Gender:   model.GenderMale,
-		IsAdmin:  false,
-		Token:    "user-token",
-		// Don't include password hash in response
+	// Create a new repository instance
+	repo := repository.NewUserRepository()
+	
+	// Fetch the user from database
+	user, err := repo.GetUser(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "User not found", nil)
+		return
 	}
+	
+	// Don't include password hash in response for security
+	user.PasswordHash = ""
 	
 	c.JSONResponse(http.StatusOK, "User retrieved successfully", user)
 }
