@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"go-pos/model"
+	"go-pos/repository"
 	"net/http"
 	"strconv"
 )
@@ -10,6 +11,13 @@ import (
 // CategoryController handles Category CRUD operations
 type CategoryController struct {
 	BaseController
+	repo *repository.CategoryRepository
+}
+
+// Prepare initializes the controller
+func (c *CategoryController) Prepare() {
+	// Initialize the repository
+	c.repo = repository.NewCategoryRepository()
 }
 
 // Create adds a new category
@@ -21,11 +29,14 @@ func (c *CategoryController) Create() {
 		return
 	}
 	
-	// TODO: Implement repository call to save the category
-	// For now, mock the response
-	category.ID = 1 // Mocked ID
+	// Save the category to database
+	newCategory, err := c.repo.CreateCategory(&category)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to create category: "+err.Error(), nil)
+		return
+	}
 	
-	c.JSONResponse(http.StatusCreated, "Category created successfully", category)
+	c.JSONResponse(http.StatusCreated, "Category created successfully", newCategory)
 }
 
 // Get retrieves a category by ID
@@ -37,11 +48,10 @@ func (c *CategoryController) Get() {
 		return
 	}
 	
-	// TODO: Implement repository call to fetch the category
-	// For now, mock the response
-	category := &model.Category{
-		ID:   id,
-		Name: "Sample Category",
+	category, err := c.repo.GetCategory(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Category not found", nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "Category retrieved successfully", category)
@@ -49,11 +59,10 @@ func (c *CategoryController) Get() {
 
 // GetAll retrieves all categories
 func (c *CategoryController) GetAll() {
-	// TODO: Implement repository call to fetch all categories
-	// For now, mock the response
-	categories := []model.Category{
-		{ID: 1, Name: "Category 1"},
-		{ID: 2, Name: "Category 2"},
+	categories, err := c.repo.GetAllCategories()
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve categories: "+err.Error(), nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "Categories retrieved successfully", categories)
@@ -76,9 +85,21 @@ func (c *CategoryController) Update() {
 	
 	category.ID = id
 	
-	// TODO: Implement repository call to update the category
+	// Check if category exists
+	_, err = c.repo.GetCategory(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Category not found", nil)
+		return
+	}
 	
-	c.JSONResponse(http.StatusOK, "Category updated successfully", category)
+	// Update category
+	updatedCategory, err := c.repo.UpdateCategory(&category)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to update category: "+err.Error(), nil)
+		return
+	}
+	
+	c.JSONResponse(http.StatusOK, "Category updated successfully", updatedCategory)
 }
 
 // Delete deletes a category
@@ -90,8 +111,31 @@ func (c *CategoryController) Delete() {
 		return
 	}
 	
-	// TODO: Implement repository call to delete the category
-	_ = id // Temporary fix: use the id variable to avoid unused variable error
+	// Check if category exists
+	_, err = c.repo.GetCategory(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Category not found", nil)
+		return
+	}
+	
+	// Check if category is in use by any items
+	inUse, err := c.repo.IsCategoryInUse(id)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to check if category is in use: "+err.Error(), nil)
+		return
+	}
+	
+	if inUse {
+		c.JSONResponse(http.StatusBadRequest, "Cannot delete category: it is being used by one or more items", nil)
+		return
+	}
+	
+	// Delete category
+	err = c.repo.DeleteCategory(id)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to delete category: "+err.Error(), nil)
+		return
+	}
 	
 	c.JSONResponse(http.StatusOK, "Category deleted successfully", nil)
 }

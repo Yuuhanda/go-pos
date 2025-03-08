@@ -11,7 +11,13 @@ import (
 // ItemController handles Item CRUD operations
 type ItemController struct {
 	BaseController
-	repo repository.ItemRepository
+	repo *repository.ItemRepository
+}
+
+// Prepare initializes the controller
+func (c *ItemController) Prepare() {
+	// Initialize the repository
+	c.repo = repository.NewItemRepository()
 }
 
 // Create adds a new item
@@ -23,11 +29,14 @@ func (c *ItemController) Create() {
 		return
 	}
 	
-	// TODO: Implement repository call to save the item
-	// For now, mock the response
-	item.ID = 1 // Mocked ID
+	// Save the item to database
+	newItem, err := c.repo.CreateItem(&item)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to create item: "+err.Error(), nil)
+		return
+	}
 	
-	c.JSONResponse(http.StatusCreated, "Item created successfully", item)
+	c.JSONResponse(http.StatusCreated, "Item created successfully", newItem)
 }
 
 // Get retrieves an item by ID
@@ -50,11 +59,28 @@ func (c *ItemController) Get() {
 
 // GetAll retrieves all items
 func (c *ItemController) GetAll() {
-	// TODO: Implement repository call to fetch all items
-	// For now, mock the response
-	items := []model.Item{
-		{ID: 1, CategoryID: 1, Name: "Item 1", Price: 1000},
-		{ID: 2, CategoryID: 2, Name: "Item 2", Price: 2000},
+	// Check for optional category filter
+	categoryIDStr := c.GetString("category_id")
+
+	var items []model.Item
+	var err error
+
+	if categoryIDStr != "" {
+		var categoryID int
+		categoryID, err = strconv.Atoi(categoryIDStr)  // Use the existing err variable
+		if err != nil {
+			c.JSONResponse(http.StatusBadRequest, "Invalid category ID format", nil)
+			return
+		}
+		
+		items, err = c.repo.GetItemsByCategory(categoryID)
+	} else {
+		items, err = c.repo.GetAllItems()
+	}
+	
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve items: "+err.Error(), nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "Items retrieved successfully", items)
@@ -77,9 +103,21 @@ func (c *ItemController) Update() {
 	
 	item.ID = id
 	
-	// TODO: Implement repository call to update the item
+	// Check if item exists
+	_, err = c.repo.GetItem(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Item not found", nil)
+		return
+	}
 	
-	c.JSONResponse(http.StatusOK, "Item updated successfully", item)
+	// Update the item
+	updatedItem, err := c.repo.UpdateItem(&item)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to update item: "+err.Error(), nil)
+		return
+	}
+	
+	c.JSONResponse(http.StatusOK, "Item updated successfully", updatedItem)
 }
 
 // Delete deletes an item
@@ -91,13 +129,19 @@ func (c *ItemController) Delete() {
 		return
 	}
 	
-	//err = c.repo.Delete(id)
-	//if err != nil {
-	//	c.JSONResponse(http.StatusInternalServerError, "Failed to delete item", nil)
-	//	return
-	//}
-
-	_ = id //temporary fix
+	// Check if item exists
+	_, err = c.repo.GetItem(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Item not found", nil)
+		return
+	}
+	
+	// Delete the item
+	err = c.repo.DeleteItem(id)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to delete item: "+err.Error(), nil)
+		return
+	}
 	
 	c.JSONResponse(http.StatusOK, "Item deleted successfully", nil)
 }
