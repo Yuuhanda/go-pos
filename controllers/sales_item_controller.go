@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"go-pos/model"
+	"go-pos/repository"
 	"net/http"
 	"strconv"
 )
@@ -10,6 +11,13 @@ import (
 // SalesItemController handles SalesItem CRUD operations
 type SalesItemController struct {
 	BaseController
+	repo *repository.SalesItemRepository
+}
+
+// Prepare initializes the controller
+func (c *SalesItemController) Prepare() {
+	// Initialize the repository
+	c.repo = repository.NewSalesItemRepository()
 }
 
 // Create adds a new sales item
@@ -21,11 +29,30 @@ func (c *SalesItemController) Create() {
 		return
 	}
 	
-	// TODO: Implement repository call to save the sales item
-	// For now, mock the response
-	salesItem.ID = 1 // Mocked ID
+	// Validate required fields
+	if salesItem.SalesID <= 0 {
+		c.JSONResponse(http.StatusBadRequest, "Sales ID is required", nil)
+		return
+	}
 	
-	c.JSONResponse(http.StatusCreated, "Sales item created successfully", salesItem)
+	if salesItem.ItemID <= 0 {
+		c.JSONResponse(http.StatusBadRequest, "Item ID is required", nil)
+		return
+	}
+	
+	if salesItem.Qty <= 0 {
+		c.JSONResponse(http.StatusBadRequest, "Quantity must be greater than zero", nil)
+		return
+	}
+	
+	// Save the sales item to database
+	newSalesItem, err := c.repo.CreateSalesItem(&salesItem)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to create sales item: "+err.Error(), nil)
+		return
+	}
+	
+	c.JSONResponse(http.StatusCreated, "Sales item created successfully", newSalesItem)
 }
 
 // Get retrieves a sales item by ID
@@ -37,14 +64,10 @@ func (c *SalesItemController) Get() {
 		return
 	}
 	
-	// TODO: Implement repository call to fetch the sales item
-	// For now, mock the response
-	salesItem := &model.SalesItem{
-		ID:          id,
-		SalesID:     1,
-		ItemID:      1,
-		Qty:         2,
-		TotalAmount: 2000,
+	salesItem, err := c.repo.GetSalesItem(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Sales item not found", nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "Sales item retrieved successfully", salesItem)
@@ -52,23 +75,27 @@ func (c *SalesItemController) Get() {
 
 // GetAll retrieves all sales items
 func (c *SalesItemController) GetAll() {
-	// TODO: Implement repository call to fetch all sales items
-	// For now, mock the response
-	salesItems := []model.SalesItem{
-		{
-			ID:          1,
-			SalesID:     1,
-			ItemID:      1,
-			Qty:         2,
-			TotalAmount: 2000,
-		},
-		{
-			ID:          2,
-			SalesID:     1,
-			ItemID:      2,
-			Qty:         3,
-			TotalAmount: 3000,
-		},
+	// Check for optional sales basket filter
+	salesIDStr := c.GetString("sales_id")
+	var salesItems []model.SalesItem
+	var err error
+	
+	if salesIDStr != "" {
+		var salesID int
+		salesID, err = strconv.Atoi(salesIDStr)
+		if err != nil {
+			c.JSONResponse(http.StatusBadRequest, "Invalid sales ID format", nil)
+			return
+		}
+		
+		salesItems, err = c.repo.GetSalesItemsBySales(salesID)
+	} else {
+		salesItems, err = c.repo.GetAllSalesItems()
+	}
+	
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve sales items: "+err.Error(), nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "Sales items retrieved successfully", salesItems)
@@ -91,9 +118,21 @@ func (c *SalesItemController) Update() {
 	
 	salesItem.ID = id
 	
-	// TODO: Implement repository call to update the sales item
+	// Check if sales item exists
+	_, err = c.repo.GetSalesItem(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Sales item not found", nil)
+		return
+	}
 	
-	c.JSONResponse(http.StatusOK, "Sales item updated successfully", salesItem)
+	// Update sales item
+	updatedSalesItem, err := c.repo.UpdateSalesItem(&salesItem)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to update sales item: "+err.Error(), nil)
+		return
+	}
+	
+	c.JSONResponse(http.StatusOK, "Sales item updated successfully", updatedSalesItem)
 }
 
 // Delete deletes a sales item
@@ -105,8 +144,19 @@ func (c *SalesItemController) Delete() {
 		return
 	}
 	
-	// TODO: Implement repository call to delete the sales item
-	_ = id // Temporarily use the id variable to avoid unused variable error
+	// Check if sales item exists
+	_, err = c.repo.GetSalesItem(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "Sales item not found", nil)
+		return
+	}
+	
+	// Delete sales item
+	err = c.repo.DeleteSalesItem(id)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to delete sales item: "+err.Error(), nil)
+		return
+	}
 	
 	c.JSONResponse(http.StatusOK, "Sales item deleted successfully", nil)
 }
