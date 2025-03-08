@@ -79,31 +79,19 @@ func (c *UserController) Get() {
 
 // GetAll retrieves all users
 func (c *UserController) GetAll() {
-	// TODO: Implement repository call to fetch all users
-	// For now, mock the response
-	users := []model.User{
-		{
-			ID:       1,
-			NIK:      123456789,
-			Name:     "John Doe",
-			Address:  "123 Main St",
-			Phone:    987654321,
-			Gender:   model.GenderMale,
-			IsAdmin:  false,
-			Token:    "user-token-1",
-			// Don't include password hash in response
-		},
-		{
-			ID:       2,
-			NIK:      987654321,
-			Name:     "Jane Smith",
-			Address:  "456 Oak Ave",
-			Phone:    123456789,
-			Gender:   model.GenderFemale,
-			IsAdmin:  true,
-			Token:    "user-token-2",
-			// Don't include password hash in response
-		},
+	// Create a new repository instance
+	repo := repository.NewUserRepository()
+	
+	// Fetch all users from database
+	users, err := repo.GetAllUsers()
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve users: "+err.Error(), nil)
+		return
+	}
+	
+	// Don't include password hash in response for security
+	for i := range users {
+		users[i].PasswordHash = ""
 	}
 	
 	c.JSONResponse(http.StatusOK, "Users retrieved successfully", users)
@@ -126,6 +114,16 @@ func (c *UserController) Update() {
 	
 	user.ID = id
 	
+	// Create a new repository instance
+	repo := repository.NewUserRepository()
+	
+	// Check if user exists
+	existingUser, err := repo.GetUser(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "User not found", nil)
+		return
+	}
+	
 	// If password is being updated, hash it
 	if user.PasswordHash != "" {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.PasswordHash), bcrypt.DefaultCost)
@@ -134,14 +132,22 @@ func (c *UserController) Update() {
 			return
 		}
 		user.PasswordHash = string(hashedPassword)
+	} else {
+		// Keep the existing password
+		user.PasswordHash = existingUser.PasswordHash
 	}
 	
-	// TODO: Implement repository call to update the user
+	// Update user in database
+	updatedUser, err := repo.UpdateUser(&user)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to update user: "+err.Error(), nil)
+		return
+	}
 	
 	// Don't return sensitive information
-	user.PasswordHash = ""
+	updatedUser.PasswordHash = ""
 	
-	c.JSONResponse(http.StatusOK, "User updated successfully", user)
+	c.JSONResponse(http.StatusOK, "User updated successfully", updatedUser)
 }
 
 // Delete deletes a user
@@ -153,8 +159,22 @@ func (c *UserController) Delete() {
 		return
 	}
 	
-	// TODO: Implement repository call to delete the user
-	_ = id //temporary fix
+	// Create a new repository instance
+	repo := repository.NewUserRepository()
+	
+	// Check if user exists
+	_, err = repo.GetUser(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "User not found", nil)
+		return
+	}
+	
+	// Delete user from database
+	err = repo.DeleteUser(id)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to delete user: "+err.Error(), nil)
+		return
+	}
 	
 	c.JSONResponse(http.StatusOK, "User deleted successfully", nil)
 }
