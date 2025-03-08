@@ -156,3 +156,62 @@ func (r *UserRepository) DeleteUser(id int) error {
 	
 	return nil
 }
+
+
+// GetUserByNIK finds a user by NIK
+func (r *UserRepository) GetUserByNIK(nik int) (*model.User, error) {
+	user := &model.User{}
+	
+	query := `SELECT id_user, nik, name, address, phone, gender, password_hash, is_admin, token 
+	          FROM user WHERE nik = ?`
+	          
+	err := database.DB.QueryRow(query, nik).Scan(
+		&user.ID,
+		&user.NIK,
+		&user.Name,
+		&user.Address,
+		&user.Phone,
+		&user.Gender,
+		&user.PasswordHash,
+		&user.IsAdmin,
+		&user.Token,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user with NIK %d not found", nik)
+		}
+		return nil, err
+	}
+	
+	return user, nil
+}
+
+// GetUserByToken finds a user by token
+func (r *UserRepository) GetUserByToken(token string) (*model.User, error) {
+	user := &model.User{}
+	
+	query := `SELECT id_user, nik, name, address, phone, gender, password_hash, is_admin, token 
+	          FROM user WHERE token = ?`
+	          
+	err := database.DB.QueryRow(query, token).Scan(
+		&user.ID,
+		&user.NIK,
+		&user.Name,
+		&user.Address,
+		&user.Phone,
+		&user.Gender,
+		&user.PasswordHash,
+		&user.IsAdmin,
+		&user.Token,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user with token not found")
+		}
+		return nil, err
+	}
+	
+	return user, nil
+}

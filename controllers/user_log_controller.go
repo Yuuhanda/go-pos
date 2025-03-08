@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"go-pos/model"
+	"go-pos/repository"
 	"net/http"
 	"strconv"
 	"time"
@@ -37,11 +38,17 @@ func (c *UserLogController) Create() {
 		userLog.PlatformBrowser = c.Ctx.Request.UserAgent()
 	}
 	
-	// TODO: Implement repository call to save the user log
-	// For now, mock the response
-	userLog.ID = 1 // Mocked ID
+	// Create repository instance
+	repo := repository.NewUserLogRepository()
 	
-	c.JSONResponse(http.StatusCreated, "User log created successfully", userLog)
+	// Save the user log
+	newUserLog, err := repo.CreateUserLog(&userLog)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to create user log: "+err.Error(), nil)
+		return
+	}
+	
+	c.JSONResponse(http.StatusCreated, "User log created successfully", newUserLog)
 }
 
 // Get retrieves a user log by ID
@@ -53,14 +60,14 @@ func (c *UserLogController) Get() {
 		return
 	}
 	
-	// TODO: Implement repository call to fetch the user log
-	// For now, mock the response
-	userLog := &model.UserLog{
-		ID:              id,
-		UserID:          1,
-		Date:            time.Now(),
-		IP:              "192.168.1.1",
-		PlatformBrowser: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+	// Create repository instance
+	repo := repository.NewUserLogRepository()
+	
+	// Fetch the user log
+	userLog, err := repo.GetUserLog(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "User log not found", nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "User log retrieved successfully", userLog)
@@ -81,34 +88,21 @@ func (c *UserLogController) GetAll() {
 		}
 	}
 	
-	// TODO: Implement repository call to fetch user logs, filtered by user ID if provided
-	// For now, mock the response
-	userLogs := []model.UserLog{
-		{
-			ID:              1,
-			UserID:          1,
-			Date:            time.Now().Add(-1 * time.Hour),
-			IP:              "192.168.1.1",
-			PlatformBrowser: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-		},
-		{
-			ID:              2,
-			UserID:          1,
-			Date:            time.Now(),
-			IP:              "192.168.1.1",
-			PlatformBrowser: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-		},
+	// Create repository instance
+	repo := repository.NewUserLogRepository()
+	
+	var userLogs []model.UserLog
+	
+	// Fetch user logs, filtered by user ID if provided
+	if userIDStr != "" {
+		userLogs, err = repo.GetUserLogsByUserID(userID)
+	} else {
+		userLogs, err = repo.GetAllUserLogs()
 	}
 	
-	// Filter by user ID if specified
-	if userIDStr != "" {
-		var filteredLogs []model.UserLog
-		for _, log := range userLogs {
-			if log.UserID == userID {
-				filteredLogs = append(filteredLogs, log)
-			}
-		}
-		userLogs = filteredLogs
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve user logs: "+err.Error(), nil)
+		return
 	}
 	
 	c.JSONResponse(http.StatusOK, "User logs retrieved successfully", userLogs)
@@ -131,9 +125,24 @@ func (c *UserLogController) Update() {
 	
 	userLog.ID = id
 	
-	// TODO: Implement repository call to update the user log
+	// Create repository instance
+	repo := repository.NewUserLogRepository()
 	
-	c.JSONResponse(http.StatusOK, "User log updated successfully", userLog)
+	// Check if user log exists
+	_, err = repo.GetUserLog(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "User log not found", nil)
+		return
+	}
+	
+	// Update user log
+	updatedUserLog, err := repo.UpdateUserLog(&userLog)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to update user log: "+err.Error(), nil)
+		return
+	}
+	
+	c.JSONResponse(http.StatusOK, "User log updated successfully", updatedUserLog)
 }
 
 // Delete deletes a user log
@@ -145,8 +154,22 @@ func (c *UserLogController) Delete() {
 		return
 	}
 	
-	// TODO: Implement repository call to delete the user log
-	_ = id // Temporarily use the id variable to avoid unused variable error
+	// Create repository instance
+	repo := repository.NewUserLogRepository()
+	
+	// Check if user log exists
+	_, err = repo.GetUserLog(id)
+	if err != nil {
+		c.JSONResponse(http.StatusNotFound, "User log not found", nil)
+		return
+	}
+	
+	// Delete user log
+	err = repo.DeleteUserLog(id)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to delete user log: "+err.Error(), nil)
+		return
+	}
 	
 	c.JSONResponse(http.StatusOK, "User log deleted successfully", nil)
 }

@@ -9,6 +9,7 @@ type UserLog struct {
 	Date            time.Time `json:"date" db:"date"`
 	IP              string    `json:"ip" db:"ip"`
 	PlatformBrowser string    `json:"platform_browser" db:"platform_browser"`
+	Action          string    `json:"action" db:"action"`
 	
 	// Optional relation field (not in database)
 	User            *User     `json:"user,omitempty" db:"-"`

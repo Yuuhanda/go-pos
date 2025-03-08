@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"go-pos/model"
+	"go-pos/repository"
 	"net/http"
 	"time"
 	"golang.org/x/crypto/bcrypt"
@@ -35,22 +36,19 @@ func (c *AuthController) Login() {
 		return
 	}
 	
-	// TODO: Implement repository call to find user by NIK
-	// For now, mock the user
-	user := &model.User{
-		ID:           1,
-		NIK:          loginReq.NIK,
-		Name:         "John Doe",
-		Address:      "123 Main St",
-		Phone:        987654321,
-		Gender:       model.GenderMale,
-		IsAdmin:      false,
-		PasswordHash: "$2a$10$XgNp5NSnK8WbgJZJGyfkQe1J3yMT9reKP/Ia6Q4qbsFMLZU2USc26", // hashed "password"
-		Token:        "",
+	// Create repository instances
+	userRepo := repository.NewUserRepository()
+	userLogRepo := repository.NewUserLogRepository()
+	
+	// Find user by NIK
+	user, err := userRepo.GetUserByNIK(loginReq.NIK)
+	if err != nil {
+		c.JSONResponse(http.StatusUnauthorized, "Invalid credentials", nil)
+		return
 	}
 	
 	// Verify password
-	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(loginReq.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(loginReq.Password))
 	if err != nil {
 		c.JSONResponse(http.StatusUnauthorized, "Invalid credentials", nil)
 		return
@@ -61,8 +59,11 @@ func (c *AuthController) Login() {
 	
 	// Update the user's token
 	user.Token = token
-	
-	// TODO: Save the updated token to the database
+	_, err = userRepo.UpdateUser(user)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to update user token", nil)
+		return
+	}
 	
 	// Create a user log entry
 	userLog := &model.UserLog{
@@ -72,8 +73,13 @@ func (c *AuthController) Login() {
 		PlatformBrowser: c.Ctx.Request.UserAgent(),
 	}
 	
-	// TODO: Save the user log
-	_ = userLog //temporary fix
+	// Save the user log
+	_, err = userLogRepo.CreateUserLog(userLog)
+	if err != nil {
+		// Log the error but continue - non-critical operation
+		// In a production environment, you might want to log this error properly
+		// fmt.Printf("Error logging user login: %v\n", err)
+	}
 	
 	// Don't include password hash in response
 	user.PasswordHash = ""
@@ -95,10 +101,41 @@ func (c *AuthController) Logout() {
 		return
 	}
 	
-	// TODO: Implement repository call to invalidate the token
-	// This could involve:
-	// 1. Finding the user by token
-	// 2. Setting the token to empty or generating a new one
+	// Create repository instance
+	userRepo := repository.NewUserRepository()
+	
+	// Find the user by token
+	user, err := userRepo.GetUserByToken(token)
+	if err != nil {
+		c.JSONResponse(http.StatusUnauthorized, "Invalid token", nil)
+		return
+	}
+	
+	// Invalidate the token by generating a new one
+	user.Token = uuid.New().String() // Generate a new token that won't match what the client has
+	
+	// Update the user
+	_, err = userRepo.UpdateUser(user)
+	if err != nil {
+		c.JSONResponse(http.StatusInternalServerError, "Failed to update user token", nil)
+		return
+	}
+	
+	// Create user log for logout
+	userLogRepo := repository.NewUserLogRepository()
+	userLog := &model.UserLog{
+		UserID:          user.ID,
+		Date:            time.Now(),
+		IP:              c.Ctx.Input.IP(),
+		PlatformBrowser: c.Ctx.Request.UserAgent(),
+		Action:          "LOGOUT", // Add this field to the UserLog model
+	}
+	
+	// Save the logout log
+	_, err = userLogRepo.CreateUserLog(userLog)
+	if err != nil {
+		// Log the error but continue - non-critical operation
+	}
 	
 	c.JSONResponse(http.StatusOK, "Logout successful", nil)
 }
