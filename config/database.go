@@ -16,7 +16,7 @@ type DBConfig struct {
 // GetDBConfig returns the database configuration
 func GetDBConfig() *DBConfig {
     return &DBConfig{
-        Host:     getEnv("DB_HOST", "127.0.0.1"),
+        Host:     getEnv("DB_HOST", "localhost"),
         Port:     getEnv("DB_PORT", "3306"),
         User:     getEnv("DB_USER", "root"),
         Password: getEnv("DB_PASSWORD", ""),
