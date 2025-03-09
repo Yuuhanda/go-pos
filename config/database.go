@@ -18,8 +18,8 @@ func GetDBConfig() *DBConfig {
     return &DBConfig{
         Host:     getEnv("DB_HOST", "127.0.0.1"),
         Port:     getEnv("DB_PORT", "3306"),
-        User:     getEnv("DB_USER", "username"),
-        Password: getEnv("DB_PASSWORD", "password"),
+        User:     getEnv("DB_USER", "root"),
+        Password: getEnv("DB_PASSWORD", ""),
         DBName:   getEnv("DB_NAME", "go-pos"),
     }
 }
