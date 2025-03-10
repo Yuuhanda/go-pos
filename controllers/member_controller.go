@@ -80,9 +80,10 @@ func (c *MemberController) GetAll() {
 	
 	var members []model.Member
 	var err error
-	
+
 	if phoneStr != "" {
-		phone, err := strconv.Atoi(phoneStr)
+		var phone int
+		phone, err = strconv.Atoi(phoneStr)
 		if err != nil {
 			c.JSONResponse(http.StatusBadRequest, "Invalid phone number format", nil)
 			return
@@ -92,7 +93,7 @@ func (c *MemberController) GetAll() {
 	} else {
 		members, err = c.repo.GetAllMembers()
 	}
-	
+
 	if err != nil {
 		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve members: "+err.Error(), nil)
 		return
@@ -171,4 +172,18 @@ func (c *MemberController) Delete() {
 	}
 	
 	c.JSONResponse(http.StatusOK, "Member deleted successfully", nil)
+}
+
+// GetAllPoints retrieves all member points
+func (c *MemberController) GetAllPoints() {
+    // Get member points from repository
+    memberPointRepo := repository.NewMemberPointRepository()
+    points, err := memberPointRepo.GetAllMemberPoints()
+    
+    if err != nil {
+        c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve member points: "+err.Error(), nil)
+        return
+    }
+    
+    c.JSONResponse(http.StatusOK, "Member points retrieved successfully", points)
 }

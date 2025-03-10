@@ -188,14 +188,14 @@ func (c *MemberPointController) Update() {
 	// Get the original point transaction
 	originalPoint, err := c.repo.GetMemberPoint(id)
 	if err != nil {
-		c.JSONResponse(http.StatusNotFound, "Member point transaction not found", nil)
+		c.JSONResponse(http.StatusNotFound, "Member point transaction not found", err)
 		return
 	}
-	
+
 	// Get the member
 	member, err := c.memberRepo.GetMember(originalPoint.MemberID)
 	if err != nil {
-		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve member: "+err.Error(), nil)
+		c.JSONResponse(http.StatusInternalServerError, "Failed to retrieve member", err)
 		return
 	}
 	

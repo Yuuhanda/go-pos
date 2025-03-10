@@ -2,7 +2,10 @@ package main
 
 import (
 	"go-pos/database"
+	_ "go-pos/routers"
 	"log"
+
+	"github.com/beego/beego/v2/server/web"
 )
 
 func main() {
@@ -13,5 +16,5 @@ func main() {
 	// Rest of your application setup
 	log.Println("Application started...")
 	
-	// Your application code here...
+	web.Run()
 }
