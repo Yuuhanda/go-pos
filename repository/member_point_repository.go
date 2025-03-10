@@ -282,3 +282,24 @@ func (r *MemberPointRepository) DeleteMemberPointTx(tx *sql.Tx, id int) error {
 	
 	return nil
 }
+
+// UpdateMemberPoint updates a member point transaction
+func (r *MemberPointRepository) UpdateMemberPoint(memberPoint *model.MemberPoint) (*model.MemberPoint, error) {
+	query := `UPDATE member_point SET 
+	          id_member = ?, 
+	          type = ?, 
+	          points = ? 
+	          WHERE id_point = ?`
+	          
+	_, err := database.DB.Exec(query,
+		memberPoint.MemberID,
+		memberPoint.Type,
+		memberPoint.Points,
+		memberPoint.ID)
+		
+	if err != nil {
+		return nil, err
+	}
+	
+	return memberPoint, nil
+}

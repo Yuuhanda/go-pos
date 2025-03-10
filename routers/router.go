@@ -25,7 +25,7 @@ func init() {
 	
 	// MemberPoint routes
 	beego.Router("/api/member-points", &controllers.MemberController{}, "get:GetAllPoints;post:CreatePoint")
-	beego.Router("/api/member-points/:id", &controllers.MemberController{}, "get:GetPoint;put:UpdatePoint;delete:DeletePoint")
+	beego.Router("/api/member-points/:id", &controllers.MemberController{}, "get:GetPoint;put:UpdatePoint")
 	
 	// SalesBasket routes
 	beego.Router("/api/sales", &controllers.SalesBasketController{}, "get:GetAll;post:Create")

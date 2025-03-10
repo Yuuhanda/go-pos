@@ -187,3 +187,75 @@ func (c *MemberController) GetAllPoints() {
     
     c.JSONResponse(http.StatusOK, "Member points retrieved successfully", points)
 }
+
+// GetPoint retrieves a member point by ID
+func (c *MemberController) GetPoint() {
+    idStr := c.Ctx.Input.Param(":id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        c.JSONResponse(http.StatusBadRequest, "Invalid ID format", nil)
+        return
+    }
+    
+    memberPointRepo := repository.NewMemberPointRepository()
+    memberPoint, err := memberPointRepo.GetMemberPoint(id)
+    if err != nil {
+        c.JSONResponse(http.StatusNotFound, "Member point not found", nil)
+        return
+    }
+    
+    c.JSONResponse(http.StatusOK, "Member point retrieved successfully", memberPoint)
+}
+
+// UpdatePoint updates a member point
+func (c *MemberController) UpdatePoint() {
+    idStr := c.Ctx.Input.Param(":id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        c.JSONResponse(http.StatusBadRequest, "Invalid ID format", nil)
+        return
+    }
+    
+    var memberPoint model.MemberPoint
+    if err := json.Unmarshal(c.Ctx.Input.RequestBody, &memberPoint); err != nil {
+        c.JSONResponse(http.StatusBadRequest, "Invalid request body", nil)
+        return
+    }
+    
+    memberPoint.ID = id
+    
+    // Check if point exists
+    memberPointRepo := repository.NewMemberPointRepository()
+    existingPoint, err := memberPointRepo.GetMemberPoint(id)
+    if err != nil {
+        c.JSONResponse(http.StatusNotFound, "Member point not found", nil)
+        return
+    }
+    
+    // If points are changing, update the member's total points
+    if existingPoint.Points != memberPoint.Points {
+        // Get the member
+        member, err := c.repo.GetMember(memberPoint.MemberID)
+        if err != nil {
+            c.JSONResponse(http.StatusNotFound, "Member not found", nil)
+            return
+        }
+        
+        // Update member's total points (subtract old points, add new points)
+        member.Points = member.Points - existingPoint.Points + memberPoint.Points
+        _, err = c.repo.UpdateMember(member)
+        if err != nil {
+            c.JSONResponse(http.StatusInternalServerError, "Failed to update member points: "+err.Error(), nil)
+            return
+        }
+    }
+    
+    // Update the point record
+    updatedPoint, err := memberPointRepo.UpdateMemberPoint(&memberPoint)
+    if err != nil {
+        c.JSONResponse(http.StatusInternalServerError, "Failed to update member point: "+err.Error(), nil)
+        return
+    }
+    
+    c.JSONResponse(http.StatusOK, "Member point updated successfully", updatedPoint)
+}
