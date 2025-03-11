@@ -332,3 +332,4 @@ func (c *MemberPointController) Delete() {
 	
 	c.JSONResponse(http.StatusOK, "Member point transaction deleted successfully", nil)
 }
+
